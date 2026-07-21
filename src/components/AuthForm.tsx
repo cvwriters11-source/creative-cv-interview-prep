@@ -18,6 +18,7 @@ export function AuthForm({
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
@@ -145,17 +146,29 @@ export function AuthForm({
         >
           Password
         </label>
-        <input
-          id="password"
-          type="password"
-          required
-          minLength={6}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoComplete={mode === "register" ? "new-password" : "current-password"}
-          className="w-full rounded-xl border border-white/10 bg-navy-mid px-4 py-3 text-sm text-ink outline-none transition hover:border-white/25 focus:border-teal focus:ring-2 focus:ring-teal/25"
-          placeholder="At least 6 characters"
-        />
+        <div className="relative">
+          <input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            required
+            minLength={6}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete={
+              mode === "register" ? "new-password" : "current-password"
+            }
+            className="w-full rounded-xl border border-white/10 bg-navy-mid px-4 py-3 pr-24 text-sm text-ink outline-none transition hover:border-white/25 focus:border-teal focus:ring-2 focus:ring-teal/25"
+            placeholder="At least 6 characters"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg px-3 py-1.5 text-xs font-semibold text-mist transition hover:bg-white/5 hover:text-ink"
+            aria-label={showPassword ? "Hide password" : "Show password"}
+          >
+            {showPassword ? "Hide" : "View"}
+          </button>
+        </div>
       </div>
 
       {error && (
