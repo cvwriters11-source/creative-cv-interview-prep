@@ -67,16 +67,16 @@ export default function HomePage() {
 
             <div className="cw-rise-delay mt-6 flex flex-wrap items-center gap-3">
               <Link
-                href="/schedule"
+                href="/interviews"
                 className="rounded-full bg-teal px-7 py-3 text-sm font-semibold text-navy shadow-[0_0_40px_rgba(232,93,4,0.3)] transition hover:bg-foam sm:text-base"
               >
                 Start interview
               </Link>
               <Link
-                href="/guide"
+                href="/ats"
                 className="rounded-full border border-white/25 px-5 py-3 text-sm font-medium text-ink transition hover:border-teal/50 hover:text-teal sm:text-base"
               >
-                Prep guide
+                Test Your CV for ATS
               </Link>
             </div>
           </div>

@@ -106,22 +106,22 @@ export function ResultsView({ session }: { session: InterviewSession }) {
 
       <div className="mt-12 flex flex-wrap gap-3">
         <Link
-          href="/schedule"
+          href="/interviews"
           className="rounded-full bg-teal px-6 py-3 text-sm font-semibold text-navy transition hover:bg-foam"
         >
           Book another interview
         </Link>
         <Link
-          href="/guide"
+          href="/prep"
           className="rounded-full border border-white/20 px-6 py-3 text-sm font-medium text-ink transition hover:border-teal/50"
         >
           Prep guide
         </Link>
         <Link
-          href="/dashboard"
+          href="/career-development"
           className="rounded-full border border-white/20 px-6 py-3 text-sm font-medium text-ink transition hover:border-teal/50"
         >
-          Dashboard
+          Career development
         </Link>
       </div>
     </div>

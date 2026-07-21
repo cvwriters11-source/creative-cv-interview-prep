@@ -50,7 +50,7 @@ export function SessionsList({
           Start a practice session whenever you are ready.
         </p>
         <Link
-          href="/schedule"
+          href="/interviews"
           className="mt-8 inline-flex rounded-full bg-teal px-6 py-3 text-sm font-semibold text-navy transition hover:bg-foam"
         >
           Start interview

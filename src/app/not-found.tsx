@@ -16,7 +16,7 @@ export default function NotFound() {
       <h1 className="mt-6 text-xl text-foam">Page not found</h1>
       <p className="mt-2 text-mist">That interview or page does not exist.</p>
       <Link
-        href="/dashboard"
+        href="/interviews"
         className="mt-8 rounded-full bg-teal px-6 py-3 text-sm font-semibold text-navy transition hover:bg-foam"
       >
         Go to dashboard

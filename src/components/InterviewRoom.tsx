@@ -308,7 +308,7 @@ export function InterviewRoom({ session }: { session: InterviewSession }) {
         </p>
         <div className="mt-10 flex flex-wrap justify-center gap-3">
           <Link
-            href="/schedule"
+            href="/interviews"
             className="rounded-full bg-teal px-8 py-3.5 text-base font-semibold text-navy transition hover:bg-foam"
           >
             Book again

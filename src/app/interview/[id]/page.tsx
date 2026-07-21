@@ -36,7 +36,7 @@ export default async function InterviewPage({ params }: Props) {
             {new Date(session.scheduled_at).toLocaleString()}.
           </p>
           <Link
-            href="/dashboard"
+            href="/interviews"
             className="mt-8 inline-flex rounded-full bg-teal px-6 py-3 text-sm font-semibold text-navy transition hover:bg-foam"
           >
             Back to dashboard
