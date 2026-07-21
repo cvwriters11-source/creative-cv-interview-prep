@@ -7,6 +7,24 @@ import { createClient } from "@/lib/supabase/client";
 
 type Mode = "login" | "register";
 
+function friendlyAuthError(message: string) {
+  const lower = message.toLowerCase();
+  if (lower.includes("rate limit")) {
+    return "Too many signup attempts right now. Please wait a few minutes and try again, or sign in if you already have an account.";
+  }
+  if (lower.includes("already exists") || lower.includes("already registered")) {
+    return "An account with this email already exists. Please sign in.";
+  }
+  if (lower.includes("invalid login") || lower.includes("invalid credentials")) {
+    return "Incorrect email or password.";
+  }
+  // Strip Postgres/RPC prefixes for cleaner UI
+  return message
+    .replace(/^.*error:\s*/i, "")
+    .replace(/^create_account:\s*/i, "")
+    .trim();
+}
+
 export function AuthForm({
   mode,
   nextPath = "/interviews",
@@ -31,19 +49,30 @@ export function AuthForm({
 
     try {
       const supabase = createClient();
+      const trimmedEmail = email.trim().toLowerCase();
 
       if (mode === "register") {
         if (password.length < 6) {
           throw new Error("Password must be at least 6 characters.");
         }
-        const { data, error: signUpError } = await supabase.auth.signUp({
-          email: email.trim(),
-          password,
-          options: {
-            data: { full_name: fullName.trim() || undefined },
-          },
+
+        const { error: createError } = await supabase.rpc("create_account", {
+          p_email: trimmedEmail,
+          p_password: password,
+          p_full_name: fullName.trim() || null,
         });
-        if (signUpError) throw signUpError;
+        if (createError) {
+          throw new Error(friendlyAuthError(createError.message));
+        }
+
+        const { data, error: signInError } =
+          await supabase.auth.signInWithPassword({
+            email: trimmedEmail,
+            password,
+          });
+        if (signInError) {
+          throw new Error(friendlyAuthError(signInError.message));
+        }
 
         if (data.user) {
           await fetch("/api/auth/track", {
@@ -58,13 +87,6 @@ export function AuthForm({
           });
         }
 
-        if (!data.session) {
-          setInfo(
-            "Account created. Check your email to confirm, then sign in.",
-          );
-          return;
-        }
-
         router.push(nextPath);
         router.refresh();
         return;
@@ -72,10 +94,12 @@ export function AuthForm({
 
       const { data, error: signInError } =
         await supabase.auth.signInWithPassword({
-          email: email.trim(),
+          email: trimmedEmail,
           password,
         });
-      if (signInError) throw signInError;
+      if (signInError) {
+        throw new Error(friendlyAuthError(signInError.message));
+      }
 
       if (data.user) {
         await fetch("/api/auth/track", {
