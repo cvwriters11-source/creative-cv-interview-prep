@@ -1,4 +1,6 @@
+import { getDataClient, hasServiceRole } from "@/lib/supabase/data-client";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import type { AtsReport } from "@/lib/ats-types";
 import type { InterviewFeedback, InterviewSession } from "@/lib/types";
 
@@ -77,8 +79,10 @@ export async function saveAtsAnalysis(input: {
   report: AtsReport;
 }) {
   try {
-    const admin = getSupabaseAdmin();
-    await admin.from("ats_analyses").insert({
+    const client = hasServiceRole()
+      ? getSupabaseAdmin()
+      : await createClient();
+    await client.from("ats_analyses").insert({
       user_id: input.userId || null,
       email: input.email || null,
       score: input.report.score,
@@ -99,25 +103,25 @@ export async function saveAtsAnalysis(input: {
 
 export async function loadAdminDashboard(): Promise<AdminDashboardData> {
   try {
-    const admin = getSupabaseAdmin();
+    const client = await getDataClient();
 
     const [usersRes, visitsRes, interviewsRes, atsRes] = await Promise.all([
-      admin
+      client
         .from("user_accounts")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(200),
-      admin
+      client
         .from("site_visits")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(200),
-      admin
+      client
         .from("interview_sessions")
         .select("*")
         .order("created_at", { ascending: false })
         .limit(200),
-      admin
+      client
         .from("ats_analyses")
         .select("*")
         .order("created_at", { ascending: false })

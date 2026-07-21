@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { AdminUsersTable } from "@/components/AdminUsersTable";
 import { AppNav } from "@/components/AppNav";
 import { requireAdmin } from "@/lib/admin";
 import { loadAdminDashboard } from "@/lib/admin-data";
@@ -28,7 +29,7 @@ function StatCard({ label, value }: { label: string; value: string | number }) {
 }
 
 export default async function AdminPage() {
-  await requireAdmin();
+  const adminUser = await requireAdmin();
   const data = await loadAdminDashboard();
 
   return (
@@ -44,8 +45,8 @@ export default async function AdminPage() {
               Users & results
             </h1>
             <p className="mt-2 max-w-2xl text-mist">
-              Only admins can see who registered, their activity, interview
-              scores, and ATS check outcomes.
+              Signed in as {adminUser.email}. View registrations, activity,
+              interview scores, ATS checks, and remove users when needed.
             </p>
           </div>
           <Link
@@ -87,39 +88,11 @@ export default async function AdminPage() {
           <h2 className="font-[family-name:var(--font-display)] text-2xl text-ink">
             Registered users
           </h2>
-          <div className="mt-4 overflow-x-auto rounded-2xl border border-white/10">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-navy-mid text-mist">
-                <tr>
-                  <th className="px-4 py-3 font-semibold">Name</th>
-                  <th className="px-4 py-3 font-semibold">Email</th>
-                  <th className="px-4 py-3 font-semibold">Joined</th>
-                  <th className="px-4 py-3 font-semibold">Last seen</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.users.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-6 text-mist">
-                      No registered users yet.
-                    </td>
-                  </tr>
-                ) : (
-                  data.users.map((u) => (
-                    <tr key={u.id} className="border-t border-white/8 text-ink">
-                      <td className="px-4 py-3">{u.full_name || "—"}</td>
-                      <td className="px-4 py-3">{u.email}</td>
-                      <td className="px-4 py-3 whitespace-nowrap text-mist">
-                        {formatDate(u.created_at)}
-                      </td>
-                      <td className="px-4 py-3 whitespace-nowrap text-mist">
-                        {formatDate(u.last_seen_at)}
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="mt-4">
+            <AdminUsersTable
+              users={data.users}
+              currentUserId={adminUser.id}
+            />
           </div>
         </section>
 

@@ -1,3 +1,4 @@
+import { getDataClient, hasServiceRole } from "@/lib/supabase/data-client";
 import { getSupabaseAdmin } from "@/lib/supabase/admin";
 
 export type TrackEvent = "register" | "login" | "visit";
@@ -10,8 +11,8 @@ export async function trackSiteEvent(input: {
   userAgent?: string | null;
 }) {
   try {
-    const admin = getSupabaseAdmin();
-    await admin.from("site_visits").insert({
+    const client = await getDataClient();
+    await client.from("site_visits").insert({
       user_id: input.userId || null,
       email: input.email || null,
       event: input.event,
@@ -19,7 +20,8 @@ export async function trackSiteEvent(input: {
       user_agent: input.userAgent || null,
     });
 
-    if (input.userId) {
+    if (input.userId && hasServiceRole()) {
+      const admin = getSupabaseAdmin();
       const patch: Record<string, string> = {
         last_seen_at: new Date().toISOString(),
       };
@@ -39,6 +41,15 @@ export async function trackSiteEvent(input: {
           last_seen_at: patch.last_seen_at,
         });
       }
+    } else if (input.userId) {
+      // Trigger already creates user_accounts; refresh last_seen when allowed
+      await client
+        .from("user_accounts")
+        .update({
+          last_seen_at: new Date().toISOString(),
+          ...(input.email ? { email: input.email } : {}),
+        })
+        .eq("id", input.userId);
     }
   } catch {
     // Tracking must never break auth

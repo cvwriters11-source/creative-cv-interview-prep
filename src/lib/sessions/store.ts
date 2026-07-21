@@ -10,7 +10,7 @@ import type {
   VoiceGender,
 } from "@/lib/types";
 import { normalizeDurationMinutes } from "@/lib/types";
-import { getSupabaseAdmin } from "@/lib/supabase/admin";
+import { getDataClient } from "@/lib/supabase/data-client";
 
 export type CreateSessionInput = {
   userId: string;
@@ -41,11 +41,8 @@ export type CompleteSessionInput = {
   feedback: InterviewFeedback;
 };
 
-function hasSupabaseAdmin(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() &&
-      process.env.SUPABASE_SERVICE_ROLE_KEY?.trim(),
-  );
+function hasSupabase(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL?.trim());
 }
 
 const DATA_DIR = path.join(process.cwd(), ".data");
@@ -66,8 +63,8 @@ async function writeLocal(sessions: InterviewSession[]) {
 }
 
 export async function listSessions(userId: string): Promise<InterviewSession[]> {
-  if (hasSupabaseAdmin()) {
-    const supabase = getSupabaseAdmin();
+  if (hasSupabase()) {
+    const supabase = await getDataClient();
     const { data, error } = await supabase
       .from("interview_sessions")
       .select("*")
@@ -91,8 +88,8 @@ export async function getSession(
   userId: string,
   id: string,
 ): Promise<InterviewSession | null> {
-  if (hasSupabaseAdmin()) {
-    const supabase = getSupabaseAdmin();
+  if (hasSupabase()) {
+    const supabase = await getDataClient();
     const { data, error } = await supabase
       .from("interview_sessions")
       .select("*")
@@ -111,8 +108,8 @@ export async function getSession(
 export async function createSession(
   input: CreateSessionInput,
 ): Promise<InterviewSession> {
-  if (hasSupabaseAdmin()) {
-    const supabase = getSupabaseAdmin();
+  if (hasSupabase()) {
+    const supabase = await getDataClient();
     const { data, error } = await supabase
       .from("interview_sessions")
       .insert({
@@ -164,8 +161,8 @@ export async function updateSessionStatus(
   status: SessionStatus,
   extra: Partial<InterviewSession> = {},
 ): Promise<InterviewSession | null> {
-  if (hasSupabaseAdmin()) {
-    const supabase = getSupabaseAdmin();
+  if (hasSupabase()) {
+    const supabase = await getDataClient();
     const { data, error } = await supabase
       .from("interview_sessions")
       .update({ status, ...extra })
@@ -199,5 +196,5 @@ export async function completeSession(
 }
 
 export function usingLocalStore(): boolean {
-  return !hasSupabaseAdmin();
+  return !hasSupabase();
 }
