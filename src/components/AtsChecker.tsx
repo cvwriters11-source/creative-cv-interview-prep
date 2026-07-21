@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ApplyScope, AtsReport, CvSource } from "@/lib/ats-types";
+import { shareResultsImage } from "@/lib/share-results-image";
 
 function emitAtsResults(showing: boolean) {
   window.dispatchEvent(
@@ -102,6 +103,10 @@ function AtsResultsView({
   report: AtsReport;
   onBack: () => void;
 }) {
+  const shareCardRef = useRef<HTMLDivElement>(null);
+  const [sharing, setSharing] = useState(false);
+  const [shareNote, setShareNote] = useState<string | null>(null);
+
   // Verified only when claimed Creative CV AND content actually scores high
   const verified = report.source === "creative-cv" && report.score >= 80;
   const applyLabel =
@@ -111,18 +116,42 @@ function AtsResultsView({
     `${report.candidateName}: ${report.score}/100 (${report.ratingLabel})`,
     `Applying: ${applyLabel}`,
     verified ? "Creative-CV Verified" : "Needs ATS improvements",
-    report.summary,
   ].join("\n");
 
-  function shareWhatsApp() {
-    const url = `https://wa.me/?text=${encodeURIComponent(shareText)}`;
-    window.open(url, "_blank", "noopener,noreferrer");
+  async function shareScorePicture() {
+    const el = shareCardRef.current;
+    if (!el || sharing) return;
+    setSharing(true);
+    setShareNote(null);
+    try {
+      const mode = await shareResultsImage({
+        element: el,
+        fileName: `creative-cv-ats-${report.candidateName.replace(/\s+/g, "-").toLowerCase()}-${report.score}.png`,
+        title: "Creative CV ATS Results",
+        text: shareText,
+      });
+      if (mode === "downloaded") {
+        setShareNote(
+          "Score picture downloaded. Attach it in WhatsApp so the client can read it easily.",
+        );
+      }
+    } catch (err) {
+      setShareNote(
+        err instanceof Error
+          ? err.message
+          : "Could not create the score picture. Try again.",
+      );
+    } finally {
+      setSharing(false);
+    }
   }
 
   return (
     <div id="ats-results-root" className="mx-auto w-full max-w-[420px]">
-      {/* Phone-style chrome for screenshots */}
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-2xl bg-[#0a1628] px-3 py-3 text-white">
+      <div
+        data-share-ignore="true"
+        className="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-2xl bg-[#0a1628] px-3 py-3 text-white"
+      >
         <button
           type="button"
           onClick={onBack}
@@ -133,14 +162,18 @@ function AtsResultsView({
         <p className="text-sm font-semibold">Analysis Results</p>
         <button
           type="button"
-          onClick={shareWhatsApp}
-          className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-white"
+          onClick={() => void shareScorePicture()}
+          disabled={sharing}
+          className="inline-flex items-center gap-1.5 rounded-full bg-[#25D366] px-3 py-1.5 text-xs font-semibold text-white disabled:opacity-60"
         >
-          <span aria-hidden>↗</span> Share
+          <span aria-hidden>↗</span> {sharing ? "…" : "Share"}
         </button>
       </div>
 
-      <div className="space-y-3 rounded-b-2xl bg-[#eef1f4] px-3 pb-6 pt-3">
+      <div
+        ref={shareCardRef}
+        className="space-y-3 rounded-b-2xl bg-[#eef1f4] px-3 pb-6 pt-3"
+      >
         {verified ? (
           <div className="flex items-start gap-3 rounded-2xl border border-[#e85d04]/35 bg-[#fff4eb] px-3.5 py-3">
             <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#e85d04] text-sm font-bold text-white">
@@ -284,13 +317,28 @@ function AtsResultsView({
           </section>
         ))}
 
+        <div className="rounded-2xl bg-[#0a1628] px-3.5 py-3 text-center">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-white/55">
+            Creative CV · ATS Check
+          </p>
+          <p className="mt-1 text-xs text-white/80">group-of-recruiters.vercel.app</p>
+        </div>
+      </div>
+
+      <div data-share-ignore="true" className="space-y-3 bg-[#eef1f4] px-3 pb-6 pt-3">
+        {shareNote && (
+          <p className="rounded-xl border border-[#e85d04]/30 bg-[#fff4eb] px-3.5 py-3 text-[13px] text-[#c44d03]">
+            {shareNote}
+          </p>
+        )}
         <div className="flex flex-col gap-2 pt-1">
           <button
             type="button"
-            onClick={shareWhatsApp}
-            className="w-full rounded-full bg-[#25D366] py-3 text-sm font-semibold text-white"
+            onClick={() => void shareScorePicture()}
+            disabled={sharing}
+            className="w-full rounded-full bg-[#25D366] py-3 text-sm font-semibold text-white disabled:opacity-60"
           >
-            Share results on WhatsApp
+            {sharing ? "Preparing score picture…" : "Share score picture"}
           </button>
           <button
             type="button"

@@ -1,5 +1,4 @@
 import { notFound, redirect } from "next/navigation";
-import { AppNav } from "@/components/AppNav";
 import { ResultsView } from "@/components/ResultsView";
 import { requireUserId } from "@/lib/guest";
 import { getSession } from "@/lib/sessions/store";
@@ -20,9 +19,10 @@ export default async function ResultsPage({ params }: Props) {
   }
 
   return (
-    <div className="min-h-dvh bg-[radial-gradient(ellipse_at_top,#1c1e21,#121416_60%)]">
-      <AppNav variant="app" />
-      <ResultsView session={session} />
+    <div className="min-h-dvh bg-[#0a1628]">
+      <main className="flex justify-center px-0 py-0 sm:px-4 sm:py-6">
+        <ResultsView session={session} />
+      </main>
     </div>
   );
 }
