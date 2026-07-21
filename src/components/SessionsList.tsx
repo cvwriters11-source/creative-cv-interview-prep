@@ -86,7 +86,10 @@ export function SessionsList({
                     {session.field_of_work
                       ? ` · ${session.field_of_work}`
                       : ""}{" "}
-                    · {session.voice_gender === "male" ? "Male" : "Female"} voice
+                    ·{" "}
+                    {session.voice_gender === "male"
+                      ? "Clemence Mayer"
+                      : "Sasha"}{" "}
                     · {statusLabel(session.status)}
                   </p>
                 </div>

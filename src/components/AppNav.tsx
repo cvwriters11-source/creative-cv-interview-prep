@@ -119,9 +119,6 @@ export function AppNav({ variant = "app" }: { variant?: "landing" | "app" }) {
         <div className="flex items-center gap-2">
           {authReady && email ? (
             <>
-              <span className="hidden max-w-[140px] truncate text-xs text-mist sm:inline">
-                {email}
-              </span>
               <Link
                 href="/interviews"
                 className="rounded-full bg-teal px-4 py-2 text-sm font-semibold text-navy transition hover:bg-foam"

@@ -11,7 +11,15 @@ import {
   type InterviewSession,
   type TranscriptTurn,
 } from "@/lib/types";
-import { VOICE_BY_GENDER, interviewerInstructions } from "@/lib/voices";
+import {
+  VOICE_BY_GENDER,
+  buildInterviewResumeBrief,
+  interviewerInstructions,
+  interviewerName,
+} from "@/lib/voices";
+
+/** Reconnect before AI Gateway's ~25 minute hard session limit. */
+const GATEWAY_RECONNECT_AFTER_MS = 20 * 60 * 1000;
 
 type Phase =
   | "idle"
@@ -67,14 +75,25 @@ export function InterviewRoom({ session }: { session: InterviewSession }) {
   const [liveQuestion, setLiveQuestion] = useState("");
   const [liveAnswer, setLiveAnswer] = useState("");
   const [resultsReady, setResultsReady] = useState(false);
+  const [resumeBrief, setResumeBrief] = useState<string | null>(null);
+  const [isReconnecting, setIsReconnecting] = useState(false);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
   const realtimeRef = useRef<ReturnType<typeof useRealtime> | null>(null);
   const endingRef = useRef(false);
   const assistantBufRef = useRef("");
+  const remainingRef = useRef(totalSeconds);
+  const connectedAtRef = useRef(0);
+  const reconnectingRef = useRef(false);
+  const pendingReconnectRef = useRef(false);
+  const phaseRef = useRef<Phase>("idle");
   const finishRef = useRef<(opts?: { timedOut?: boolean }) => Promise<void>>(
     async () => {},
   );
+  const hostName = interviewerName(session.voice_gender);
+
+  remainingRef.current = remaining;
+  phaseRef.current = phase;
 
   const model = useMemo(() => createGatewayBrowserRealtimeModel(), []);
   const voice = VOICE_BY_GENDER[session.voice_gender] ?? VOICE_BY_GENDER.female;
@@ -86,13 +105,17 @@ export function InterviewRoom({ session }: { session: InterviewSession }) {
         fieldOfWork: session.field_of_work,
         location: session.location,
         durationMinutes,
+        voiceGender: session.voice_gender,
+        resumeBrief,
       }),
     [
       session.candidate_name,
       session.role_title,
       session.field_of_work,
       session.location,
+      session.voice_gender,
       durationMinutes,
+      resumeBrief,
     ],
   );
   const tokenApi = useMemo(
@@ -158,11 +181,29 @@ export function InterviewRoom({ session }: { session: InterviewSession }) {
   );
   finishRef.current = finishInterview;
 
+  const scheduleReconnect = useCallback(() => {
+    if (endingRef.current || reconnectingRef.current) return;
+    if (remainingRef.current < 45) return;
+    reconnectingRef.current = true;
+    pendingReconnectRef.current = true;
+    setIsReconnecting(true);
+    const turns = messagesToTranscript(realtimeRef.current?.messages ?? []);
+    setResumeBrief(buildInterviewResumeBrief(turns, remainingRef.current));
+  }, []);
+
   const realtime = useRealtime({
     model,
     api: tokenApi,
     sessionConfig,
     onError: (err) => {
+      if (
+        !endingRef.current &&
+        remainingRef.current > 45 &&
+        phaseRef.current === "live"
+      ) {
+        scheduleReconnect();
+        return;
+      }
       setError(err.message);
       setPhase("error");
     },
@@ -189,6 +230,36 @@ export function InterviewRoom({ session }: { session: InterviewSession }) {
     },
   });
   realtimeRef.current = realtime;
+
+  useEffect(() => {
+    if (!pendingReconnectRef.current || !resumeBrief) return;
+    pendingReconnectRef.current = false;
+
+    void (async () => {
+      try {
+        const rt = realtimeRef.current;
+        const stream = micStreamRef.current;
+        rt?.stopAudioCapture();
+        rt?.disconnect();
+        await rt?.connect();
+        if (stream) rt?.startAudioCapture(stream);
+        rt?.requestResponse({ modalities: ["audio"] });
+        connectedAtRef.current = Date.now();
+        setPhase("live");
+        setError(null);
+      } catch (err) {
+        setPhase("error");
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Lost connection during the interview",
+        );
+      } finally {
+        reconnectingRef.current = false;
+        setIsReconnecting(false);
+      }
+    })();
+  }, [resumeBrief]);
 
   const transcript = useMemo(
     () => messagesToTranscript(realtime.messages),
@@ -227,6 +298,7 @@ export function InterviewRoom({ session }: { session: InterviewSession }) {
   async function startInterview() {
     setError(null);
     endingRef.current = false;
+    setResumeBrief(null);
     setPhase("connecting");
     setLiveQuestion("");
     setLiveAnswer("");
@@ -257,8 +329,19 @@ export function InterviewRoom({ session }: { session: InterviewSession }) {
       realtime.requestResponse({ modalities: ["audio"] });
 
       setPhase("live");
+      connectedAtRef.current = Date.now();
       if (timerRef.current) clearInterval(timerRef.current);
       timerRef.current = setInterval(() => {
+        if (
+          !endingRef.current &&
+          !reconnectingRef.current &&
+          connectedAtRef.current > 0 &&
+          Date.now() - connectedAtRef.current >= GATEWAY_RECONNECT_AFTER_MS &&
+          remainingRef.current > 45
+        ) {
+          scheduleReconnect();
+        }
+
         setRemaining((prev) => {
           if (prev <= 1) {
             if (timerRef.current) {
@@ -343,7 +426,7 @@ export function InterviewRoom({ session }: { session: InterviewSession }) {
         Live interview
       </h1>
       <p className="mt-2 text-sm text-mist">
-        {session.role_title}
+        with {hostName} · {session.role_title}
         {session.field_of_work ? ` · ${session.field_of_work}` : ""} ·{" "}
         {durationMinutes} min
       </p>
@@ -385,11 +468,13 @@ export function InterviewRoom({ session }: { session: InterviewSession }) {
       <p className="mt-4 min-h-6 max-w-md text-center text-sm text-mist">
         {phase === "idle" &&
           "Tap start when you are ready. Allow microphone access when prompted."}
-        {phase === "connecting" && "Connecting to your interviewer…"}
+        {phase === "connecting" && `Connecting to ${hostName}…`}
         {phase === "live" &&
-          (statusListening
-            ? "Listening to you…"
-            : "Interviewer speaking or waiting for you…")}
+          (isReconnecting
+            ? "Reconnecting so you can finish your full time…"
+            : statusListening
+              ? "Listening to you…"
+              : `${hostName} is speaking or waiting for you…`)}
         {phase === "ending" && "Saving transcript and generating feedback…"}
         {phase === "error" && (error || "Something went wrong")}
       </p>

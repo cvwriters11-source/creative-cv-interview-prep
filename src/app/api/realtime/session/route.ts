@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { requireUserId } from "@/lib/guest";
 import { REALTIME_MODEL_ID } from "@/lib/realtime/gateway-browser-model";
 import { getSession } from "@/lib/sessions/store";
-import { canJoinSession } from "@/lib/types";
+import { canJoinSession, normalizeDurationMinutes } from "@/lib/types";
 
 export async function POST(req: Request) {
   const userId = await requireUserId();
@@ -48,7 +48,11 @@ export async function POST(req: Request) {
 
     const token = await gateway.experimental_realtime.getToken({
       model: REALTIME_MODEL_ID,
-      expiresAfterSeconds: 60 * 15,
+      // Gateway realtime sessions max out at ~25 minutes; mint for full slot (capped).
+      expiresAfterSeconds: Math.min(
+        normalizeDurationMinutes(session.duration_minutes) * 60 + 120,
+        60 * 25,
+      ),
     });
 
     return NextResponse.json({

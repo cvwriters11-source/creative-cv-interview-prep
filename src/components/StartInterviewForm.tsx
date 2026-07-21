@@ -201,13 +201,13 @@ export function StartInterviewForm() {
 
       <fieldset className="sm:col-span-2">
         <legend className="mb-1.5 text-xs font-medium text-mist">
-          Interviewer voice
+          Interviewer
         </legend>
         <div className="grid grid-cols-2 gap-2">
           {(
             [
-              { value: "female", label: "Female" },
-              { value: "male", label: "Male" },
+              { value: "female", label: "Sasha", hint: "Female interviewer" },
+              { value: "male", label: "Clemence Mayer", hint: "Male interviewer" },
             ] as const
           ).map((opt) => (
             <button
@@ -221,6 +221,7 @@ export function StartInterviewForm() {
               }`}
             >
               <span className="font-semibold">{opt.label}</span>
+              <span className="mt-0.5 block text-xs opacity-80">{opt.hint}</span>
             </button>
           ))}
         </div>
