@@ -25,19 +25,38 @@ export function AppNav({ variant = "app" }: { variant?: "landing" | "app" }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [authReady, setAuthReady] = useState(false);
 
   useEffect(() => {
+    const adminList = (
+      process.env.NEXT_PUBLIC_ADMIN_EMAILS ||
+      process.env.NEXT_PUBLIC_ADMIN_EMAIL ||
+      ""
+    )
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+
+    function applyUser(userEmail: string | null | undefined) {
+      const nextEmail = userEmail ?? null;
+      setEmail(nextEmail);
+      setIsAdmin(
+        Boolean(
+          nextEmail && adminList.includes(nextEmail.trim().toLowerCase()),
+        ),
+      );
+      setAuthReady(true);
+    }
+
     const supabase = createClient();
     supabase.auth.getUser().then(({ data }) => {
-      setEmail(data.user?.email ?? null);
-      setAuthReady(true);
+      applyUser(data.user?.email);
     });
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
-      setEmail(session?.user?.email ?? null);
-      setAuthReady(true);
+      applyUser(session?.user?.email);
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -83,6 +102,18 @@ export function AppNav({ variant = "app" }: { variant?: "landing" | "app" }) {
               </Link>
             );
           })}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              className={`rounded-full px-3 py-2 text-sm font-medium transition ${
+                linkActive(pathname, "/admin")
+                  ? "bg-teal/20 text-teal"
+                  : "text-teal hover:bg-teal/10"
+              }`}
+            >
+              Admin
+            </Link>
+          )}
         </nav>
 
         <div className="flex items-center gap-2">
@@ -149,6 +180,15 @@ export function AppNav({ variant = "app" }: { variant?: "landing" | "app" }) {
               </Link>
             );
           })}
+          {isAdmin && (
+            <Link
+              href="/admin"
+              onClick={() => setOpen(false)}
+              className="rounded-lg px-3 py-2.5 text-sm font-medium text-teal"
+            >
+              Admin
+            </Link>
+          )}
           {!email && (
             <Link
               href="/login"

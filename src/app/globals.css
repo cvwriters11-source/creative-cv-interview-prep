@@ -2,12 +2,12 @@
 
 :root {
   /* Creative CV brand — charcoal + orange */
-  --navy: #121416;
-  --navy-mid: #1c1e21;
+  --navy: #0a0c0e;
+  --navy-mid: #141618;
   --teal: #e85d04;
   --teal-dim: #c44d03;
   --foam: #fffaf4;
-  --mist: #c5ccd4;
+  --mist: #d0d6dd;
   --ink: #ffffff;
   --danger: #c0392b;
   --background: var(--navy);

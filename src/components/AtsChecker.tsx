@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import type { AtsReport, CvSource } from "@/lib/ats-types";
+import type { ApplyScope, AtsReport, CvSource } from "@/lib/ats-types";
 
 function emitAtsResults(showing: boolean) {
   window.dispatchEvent(
@@ -25,6 +25,19 @@ const SOURCES: { value: CvSource; label: string; hint: string }[] = [
     value: "someone-else",
     label: "Someone else did it",
     hint: "A friend, agency, or other writer",
+  },
+];
+
+const APPLY_SCOPES: { value: ApplyScope; label: string; hint: string }[] = [
+  {
+    value: "local",
+    label: "Locally",
+    hint: "Jobs in your country / domestic market",
+  },
+  {
+    value: "international",
+    label: "Internationally",
+    hint: "Roles abroad or global remote employers",
   },
 ];
 
@@ -91,9 +104,12 @@ function AtsResultsView({
 }) {
   // Verified only when claimed Creative CV AND content actually scores high
   const verified = report.source === "creative-cv" && report.score >= 80;
+  const applyLabel =
+    report.applyScope === "international" ? "International" : "Local";
   const shareText = [
     `Creative CV ATS Analysis`,
     `${report.candidateName}: ${report.score}/100 (${report.ratingLabel})`,
+    `Applying: ${applyLabel}`,
     verified ? "Creative-CV Verified" : "Needs ATS improvements",
     report.summary,
   ].join("\n");
@@ -161,7 +177,7 @@ function AtsResultsView({
               aria-hidden
             />
             <span className="truncate">
-              CV FOR: {report.candidateName}
+              CV FOR: {report.candidateName} · {applyLabel}
             </span>
           </div>
           <div className="flex gap-4 px-3.5 py-4">
@@ -299,6 +315,7 @@ export function AtsChecker() {
   const [file, setFile] = useState<File | null>(null);
   const [candidateName, setCandidateName] = useState("");
   const [source, setSource] = useState<CvSource | "">("");
+  const [applyScope, setApplyScope] = useState<ApplyScope | "">("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [report, setReport] = useState<AtsReport | null>(null);
@@ -316,6 +333,10 @@ export function AtsChecker() {
       setError("Upload your CV first.");
       return;
     }
+    if (!applyScope) {
+      setError("Tell us if you are applying locally or internationally.");
+      return;
+    }
     if (!source) {
       setError("Tell us who created this CV.");
       return;
@@ -326,6 +347,7 @@ export function AtsChecker() {
       const body = new FormData();
       body.set("file", file);
       body.set("source", source);
+      body.set("applyScope", applyScope);
       if (candidateName.trim()) body.set("candidateName", candidateName.trim());
       const res = await fetch("/api/ats/analyze", { method: "POST", body });
       const data = await res.json();
@@ -346,6 +368,7 @@ export function AtsChecker() {
           setReport(null);
           setFile(null);
           setSource("");
+          setApplyScope("");
         }}
       />
     );
@@ -401,6 +424,41 @@ export function AtsChecker() {
           />
         </label>
       </div>
+
+      <fieldset>
+        <legend className="mb-3 text-sm font-medium text-mist">
+          Are you applying locally or internationally?
+        </legend>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {APPLY_SCOPES.map((opt) => {
+            const selected = applyScope === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setApplyScope(opt.value)}
+                className={`group relative rounded-xl border px-4 py-4 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] active:translate-y-0 ${
+                  selected
+                    ? "border-teal bg-teal/15 text-ink shadow-[0_0_0_1px_rgba(232,93,4,0.4)]"
+                    : "border-white/10 bg-navy-mid text-mist hover:border-teal/45 hover:bg-white/[0.04] hover:text-ink"
+                }`}
+              >
+                <span
+                  className={`mb-2 block h-1 w-8 rounded-full transition duration-200 ${
+                    selected
+                      ? "bg-teal"
+                      : "bg-white/15 group-hover:bg-teal/70"
+                  }`}
+                />
+                <span className="block font-semibold">{opt.label}</span>
+                <span className="mt-1 block text-xs opacity-70 group-hover:opacity-90">
+                  {opt.hint}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      </fieldset>
 
       <fieldset>
         <legend className="mb-3 text-sm font-medium text-mist">

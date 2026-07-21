@@ -20,10 +20,25 @@ export async function trackSiteEvent(input: {
     });
 
     if (input.userId) {
-      await admin
-        .from("profiles")
-        .update({ last_seen_at: new Date().toISOString() })
-        .eq("id", input.userId);
+      const patch: Record<string, string> = {
+        last_seen_at: new Date().toISOString(),
+      };
+      if (input.email) patch.email = input.email;
+
+      const { data } = await admin
+        .from("user_accounts")
+        .update(patch)
+        .eq("id", input.userId)
+        .select("id")
+        .maybeSingle();
+
+      if (!data) {
+        await admin.from("user_accounts").insert({
+          id: input.userId,
+          email: input.email || "",
+          last_seen_at: patch.last_seen_at,
+        });
+      }
     }
   } catch {
     // Tracking must never break auth

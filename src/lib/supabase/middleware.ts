@@ -33,7 +33,10 @@ export async function updateSession(request: NextRequest) {
 
   const path = request.nextUrl.pathname;
   const isAuthPage = path === "/login" || path === "/register";
+  const isAdminPath =
+    path.startsWith("/admin") || path.startsWith("/api/admin");
   const isProtected =
+    isAdminPath ||
     path.startsWith("/interviews") ||
     path.startsWith("/interview/") ||
     path.startsWith("/results/") ||
@@ -50,6 +53,26 @@ export async function updateSession(request: NextRequest) {
     redirect.pathname = "/login";
     redirect.searchParams.set("next", path);
     return NextResponse.redirect(redirect);
+  }
+
+  if (user && isAdminPath) {
+    const adminList = (process.env.ADMIN_EMAILS || "")
+      .split(",")
+      .map((e) => e.trim().toLowerCase())
+      .filter(Boolean);
+    const email = (user.email || "").toLowerCase();
+    const isAdmin =
+      user.app_metadata?.role === "admin" ||
+      (adminList.length > 0 && adminList.includes(email));
+    if (!isAdmin) {
+      if (path.startsWith("/api/")) {
+        return NextResponse.json({ error: "Admin only" }, { status: 403 });
+      }
+      const redirect = request.nextUrl.clone();
+      redirect.pathname = "/interviews";
+      redirect.search = "";
+      return NextResponse.redirect(redirect);
+    }
   }
 
   if (user && isAuthPage) {

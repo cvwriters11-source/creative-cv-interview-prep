@@ -1,9 +1,9 @@
 import { generateObject } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { z } from "zod";
-import type { AtsReport, CvSource } from "@/lib/ats-types";
+import type { ApplyScope, AtsReport, CvSource } from "@/lib/ats-types";
 
-export type { AtsReport, CvSource } from "@/lib/ats-types";
+export type { ApplyScope, AtsReport, CvSource } from "@/lib/ats-types";
 
 const reportSchema = z.object({
   summary: z.string(),
@@ -21,6 +21,39 @@ const reportSchema = z.object({
   }),
   topFixes: z.array(z.string()).min(3).max(6),
 });
+
+function applyScopeLabel(scope: ApplyScope): string {
+  return scope === "local" ? "local / domestic roles" : "international roles";
+}
+
+function applyScopeAdvice(scope: ApplyScope, strong: boolean): string[] {
+  if (scope === "international") {
+    return strong
+      ? [
+          "Use internationally recognised job titles and spellings (e.g. programme vs program where relevant).",
+          "Add city + country on each role and a clear work-authorisation or relocation line if needed.",
+          "Prefer global tools/certifications employers abroad list in ads.",
+        ]
+      : [
+          "Rewrite titles and skills for international job-board language (LinkedIn, Indeed, company ATS).",
+          "Include country with every location; avoid local-only slang or unexplained acronyms.",
+          "State visa / work permit status or willingness to relocate near the top.",
+          "Rebuild on a simple single-column ATS template (Creative CV recommended).",
+        ];
+  }
+  return strong
+    ? [
+        "Mirror keywords from local job ads and industry boards in your market.",
+        "Keep phone and city formats familiar to local recruiters.",
+        "Name local tools, regulators, or qualifications employers expect.",
+      ]
+    : [
+        "Align wording to local job adverts and common role titles in your country.",
+        "Put a local phone number and city clearly in the header body text.",
+        "Rebuild on a simple single-column ATS template (Creative CV recommended).",
+        "Add a Skills section with hard keywords from the local ads you target.",
+      ];
+}
 
 /** Stable 32-bit hash so the same CV text always maps to the same score. */
 function fingerprint(text: string): number {
@@ -168,38 +201,46 @@ function withMeta(
 
 function fallbackReport(
   source: CvSource,
+  applyScope: ApplyScope,
   score: number,
   fileName: string,
   candidateName: string,
 ): AtsReport {
   const strong = score >= 80;
+  const market = applyScopeLabel(applyScope);
+  const marketFixes = applyScopeAdvice(applyScope, strong);
   return withMeta(
     {
       score,
       source,
+      applyScope,
       summary: strong
-        ? "This CV is structured well for ATS scanning. Layout and section clarity usually parse cleanly — keep keywords aligned to each job you apply for."
-        : "This CV poses challenges for many ATS parsers due to structure or weak keyword match. Immediate attention to formatting, wording, and keywords will improve pass rates.",
+        ? `This CV is structured well for ATS scanning for ${market}. Layout and section clarity usually parse cleanly — keep keywords aligned to each job you apply for.`
+        : `This CV poses challenges for many ATS parsers used for ${market}. Immediate attention to formatting, wording, and keywords will improve pass rates.`,
       areas: {
         wording: {
           score: areaScoreFromOverall(score, strong ? 2 : -4),
           findings: strong
             ? [
                 "Achievement language is mostly clear.",
-                "Some bullets could lead with stronger action verbs.",
+                applyScope === "international"
+                  ? "Check titles match how employers abroad phrase roles."
+                  : "Some bullets could lead with stronger action verbs.",
               ]
             : [
                 "Duty-style bullets may underplay impact.",
-                "Wording may not mirror common job-advert language.",
+                applyScope === "international"
+                  ? "Wording may be too local for international ATS keyword banks."
+                  : "Wording may not mirror common job-advert language.",
               ],
           fixes: strong
             ? [
                 "Start each bullet with a strong verb (Led, Delivered, Improved).",
-                "Add one measurable result per recent role where possible.",
+                marketFixes[0],
               ]
             : [
                 "Rewrite bullets as achievements, not task lists.",
-                "Mirror exact role titles and skills from the job ads you target.",
+                marketFixes[0],
               ],
         },
         formatting: {
@@ -229,36 +270,25 @@ function fallbackReport(
           findings: strong
             ? [
                 "Skills section is likely present and scannable.",
-                "Role-specific keywords could be denser for target ads.",
+                applyScope === "international"
+                  ? "Global tool names and certifications help foreign ATS filters."
+                  : "Role-specific keywords could be denser for target ads.",
               ]
             : [
                 "Keyword density may be low versus typical job descriptions.",
-                "Soft skills may crowd out hard skills ATS looks for.",
+                applyScope === "international"
+                  ? "Local-only terms may not match international job ads."
+                  : "Soft skills may crowd out hard skills ATS looks for.",
               ],
           fixes: strong
-            ? [
-                "Add 5–8 hard skills from your target job ad into Skills and Experience.",
-                "Include tools and certifications exactly as employers write them.",
-              ]
+            ? [marketFixes[1] || marketFixes[0], marketFixes[2] || marketFixes[0]]
             : [
-                "Build a Skills section with tools from the job ad.",
+                marketFixes[1] || "Build a Skills section with tools from the job ad.",
                 "Repeat critical keywords naturally inside experience bullets.",
-                "Drop vague phrases; prefer specific systems and methods.",
               ],
         },
       },
-      topFixes: strong
-        ? [
-            "Align skills to one target job advert before each application.",
-            "Quantify 2–3 bullets in your latest role.",
-            "Keep a clean single-column structure when exporting.",
-          ]
-        : [
-            "Rebuild on a simple single-column ATS template (Creative CV recommended).",
-            "Replace duty lists with achievement bullets and numbers.",
-            "Add a Skills section packed with hard keywords from the job ad.",
-            "Remove graphics, tables, and multi-column layouts.",
-          ],
+      topFixes: marketFixes.slice(0, 4),
     },
     fileName,
     candidateName,
@@ -267,20 +297,28 @@ function fallbackReport(
 
 export async function analyzeCvForAts(input: {
   source: CvSource;
+  applyScope: ApplyScope;
   fileName: string;
   candidateName?: string;
   text: string;
 }): Promise<AtsReport> {
-  // Score from content only — claimed source cannot change it
+  // Score from content only — claimed source / market cannot change it
   const score = scoreFromCvContent(input.text, input.fileName);
   const candidateName =
     input.candidateName?.trim() || nameFromFile(input.fileName);
   const model = scoringModel();
   const excerpt = input.text.slice(0, 12000).trim();
   const strong = score >= 80;
+  const market = applyScopeLabel(input.applyScope);
 
   if (!model || excerpt.length < 40) {
-    return fallbackReport(input.source, score, input.fileName, candidateName);
+    return fallbackReport(
+      input.source,
+      input.applyScope,
+      score,
+      input.fileName,
+      candidateName,
+    );
   }
 
   try {
@@ -290,8 +328,12 @@ export async function analyzeCvForAts(input: {
       prompt: [
         "You are an ATS (Applicant Tracking System) CV coach for Creative CV.",
         `Candidate: ${candidateName}.`,
+        `Applying for: ${market}.`,
         `Overall ATS score is fixed at ${score}% from content analysis — do not invent a different overall score.`,
-        "Do not change the score based on who the user claims wrote the CV.",
+        "Do not change the score based on who wrote the CV or local vs international.",
+        input.applyScope === "international"
+          ? "Tailor wording/keyword/formatting advice for international applications (global titles, country in locations, visa/relocation, internationally recognised skills)."
+          : "Tailor wording/keyword/formatting advice for local/domestic applications (local ads, phone/city formats, market-specific qualifications).",
         strong
           ? "This CV scores strongly — treat layout as solid; focus on polish for wording and keywords."
           : "This CV scores weakly — emphasise formatting/ATS parse risks and keyword gaps.",
@@ -311,6 +353,7 @@ export async function analyzeCvForAts(input: {
       {
         score,
         source: input.source,
+        applyScope: input.applyScope,
         summary: object.summary,
         areas: {
           wording: {
@@ -335,7 +378,13 @@ export async function analyzeCvForAts(input: {
       candidateName,
     );
   } catch {
-    return fallbackReport(input.source, score, input.fileName, candidateName);
+    return fallbackReport(
+      input.source,
+      input.applyScope,
+      score,
+      input.fileName,
+      candidateName,
+    );
   }
 }
 

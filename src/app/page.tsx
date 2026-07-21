@@ -31,11 +31,11 @@ export default function HomePage() {
         />
         <div
           aria-hidden
-          className="absolute inset-0 bg-[linear-gradient(105deg,rgba(18,20,22,0.96)_0%,rgba(18,20,22,0.9)_42%,rgba(18,20,22,0.55)_72%,rgba(18,20,22,0.35)_100%)]"
+          className="absolute inset-0 bg-[linear-gradient(105deg,rgba(10,12,14,0.97)_0%,rgba(10,12,14,0.94)_38%,rgba(10,12,14,0.82)_68%,rgba(10,12,14,0.72)_100%)]"
         />
         <div
           aria-hidden
-          className="cw-hero-glow absolute inset-0 bg-[radial-gradient(ellipse_at_80%_35%,rgba(244,140,6,0.22),transparent_55%)]"
+          className="cw-hero-glow absolute inset-0 bg-[radial-gradient(ellipse_at_80%_35%,rgba(244,140,6,0.12),transparent_55%)]"
         />
       </div>
 
