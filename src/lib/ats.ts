@@ -22,11 +22,72 @@ const reportSchema = z.object({
   topFixes: z.array(z.string()).min(3).max(6),
 });
 
-export function scoreForSource(source: CvSource): number {
-  if (source === "creative-cv") {
-    return Math.round(80 + Math.random() * 15);
+/** Stable 32-bit hash so the same CV text always maps to the same score. */
+function fingerprint(text: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 16777619);
   }
-  return Math.round(35 + Math.random() * 30);
+  return h >>> 0;
+}
+
+/**
+ * Score from CV content only — not from the claimed source.
+ * Same file/text → same score every time (Creative CV claim cannot inflate it).
+ */
+export function scoreFromCvContent(text: string, fileName: string): number {
+  const normalized = `${fileName}\n${text}`
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+  const h = fingerprint(normalized.slice(0, 12000));
+
+  let score = 38;
+
+  const bonuses: [RegExp, number][] = [
+    [/\b(experience|employment|work history|professional experience)\b/, 9],
+    [/\beducation\b/, 5],
+    [/\bskills?\b/, 8],
+    [/\b(summary|profile|objective|about me)\b/, 4],
+    [/\b(certifications?|qualifications?)\b/, 3],
+    [
+      /\b(achieved|improved|increased|reduced|delivered|led|managed|built|launched)\b/,
+      8,
+    ],
+    [/\d+\s*%|\$\s*\d|\b\d{2,}\s*(years?|clients?|people|users|projects?)\b/, 7],
+    [/\b(email|phone|linkedin|@)\b/, 4],
+    [/\b(bachelor|master|degree|diploma|bsc|ba|mba)\b/, 3],
+  ];
+
+  for (const [re, pts] of bonuses) {
+    if (re.test(normalized)) score += pts;
+  }
+
+  if (normalized.length < 180) score -= 18;
+  else if (normalized.length < 500) score -= 8;
+  else if (normalized.length > 1800) score += 5;
+
+  if (/\b(text box|textbox|multi-?column|table cell)\b/.test(normalized)) {
+    score -= 8;
+  }
+  if (normalized.includes("limited text could be extracted")) {
+    score = 42 + (h % 12);
+  }
+
+  // Tiny deterministic offset (0–5) so identical CVs stay identical
+  score += h % 6;
+
+  return Math.max(35, Math.min(94, Math.round(score)));
+}
+
+/** @deprecated Source no longer drives score — kept for any old imports. */
+export function scoreForSource(
+  _source: CvSource,
+  text = "",
+  fileName = "",
+): number {
+  return scoreFromCvContent(text, fileName);
 }
 
 export function ratingLabelForScore(score: number): string {
@@ -46,8 +107,8 @@ export function nameFromFile(fileName: string, fallback = "Candidate"): string {
   return cleaned.length >= 2 ? cleaned.toUpperCase() : fallback.toUpperCase();
 }
 
-function strengthsFor(source: CvSource, score: number): string[] {
-  if (source === "creative-cv") {
+function strengthsFor(score: number): string[] {
+  if (score >= 80) {
     return [
       "Professionally formatted for human recruiters",
       "Fully ATS-optimised — passes major checks",
@@ -89,7 +150,10 @@ function scoringModel() {
 }
 
 function withMeta(
-  partial: Omit<AtsReport, "fileName" | "candidateName" | "ratingLabel" | "strengths">,
+  partial: Omit<
+    AtsReport,
+    "fileName" | "candidateName" | "ratingLabel" | "strengths"
+  >,
   fileName: string,
   candidateName: string,
 ): AtsReport {
@@ -98,7 +162,7 @@ function withMeta(
     fileName,
     candidateName: candidateName.toUpperCase(),
     ratingLabel: ratingLabelForScore(partial.score),
-    strengths: strengthsFor(partial.source, partial.score),
+    strengths: strengthsFor(partial.score),
   };
 }
 
@@ -108,18 +172,18 @@ function fallbackReport(
   fileName: string,
   candidateName: string,
 ): AtsReport {
-  const creative = source === "creative-cv";
+  const strong = score >= 80;
   return withMeta(
     {
       score,
       source,
-      summary: creative
-        ? "Your professionally written Creative CV is structured for ATS scanning. Layout and section clarity usually parse cleanly — keep keywords aligned to each job you apply for."
+      summary: strong
+        ? "This CV is structured well for ATS scanning. Layout and section clarity usually parse cleanly — keep keywords aligned to each job you apply for."
         : "This CV poses challenges for many ATS parsers due to structure or weak keyword match. Immediate attention to formatting, wording, and keywords will improve pass rates.",
       areas: {
         wording: {
-          score: areaScoreFromOverall(score, creative ? 2 : -4),
-          findings: creative
+          score: areaScoreFromOverall(score, strong ? 2 : -4),
+          findings: strong
             ? [
                 "Achievement language is mostly clear.",
                 "Some bullets could lead with stronger action verbs.",
@@ -128,7 +192,7 @@ function fallbackReport(
                 "Duty-style bullets may underplay impact.",
                 "Wording may not mirror common job-advert language.",
               ],
-          fixes: creative
+          fixes: strong
             ? [
                 "Start each bullet with a strong verb (Led, Delivered, Improved).",
                 "Add one measurable result per recent role where possible.",
@@ -139,8 +203,8 @@ function fallbackReport(
               ],
         },
         formatting: {
-          score: areaScoreFromOverall(score, creative ? 4 : -8),
-          findings: creative
+          score: areaScoreFromOverall(score, strong ? 4 : -8),
+          findings: strong
             ? [
                 "Single-column, ATS-friendly layout detected as likely.",
                 "Standard section headings help parsers.",
@@ -149,7 +213,7 @@ function fallbackReport(
                 "Layouts with tables, text boxes, or multi-columns often break ATS.",
                 "Icons, headers/footers, or graphics can hide contact details.",
               ],
-          fixes: creative
+          fixes: strong
             ? [
                 "Keep section headings standard (Experience, Education, Skills).",
                 "Export as a clean PDF or DOCX without extra design layers.",
@@ -161,8 +225,8 @@ function fallbackReport(
               ],
         },
         keywording: {
-          score: areaScoreFromOverall(score, creative ? 0 : -6),
-          findings: creative
+          score: areaScoreFromOverall(score, strong ? 0 : -6),
+          findings: strong
             ? [
                 "Skills section is likely present and scannable.",
                 "Role-specific keywords could be denser for target ads.",
@@ -171,7 +235,7 @@ function fallbackReport(
                 "Keyword density may be low versus typical job descriptions.",
                 "Soft skills may crowd out hard skills ATS looks for.",
               ],
-          fixes: creative
+          fixes: strong
             ? [
                 "Add 5–8 hard skills from your target job ad into Skills and Experience.",
                 "Include tools and certifications exactly as employers write them.",
@@ -183,11 +247,11 @@ function fallbackReport(
               ],
         },
       },
-      topFixes: creative
+      topFixes: strong
         ? [
             "Align skills to one target job advert before each application.",
             "Quantify 2–3 bullets in your latest role.",
-            "Keep Creative CV’s clean single-column structure when exporting.",
+            "Keep a clean single-column structure when exporting.",
           ]
         : [
             "Rebuild on a simple single-column ATS template (Creative CV recommended).",
@@ -207,11 +271,13 @@ export async function analyzeCvForAts(input: {
   candidateName?: string;
   text: string;
 }): Promise<AtsReport> {
-  const score = scoreForSource(input.source);
+  // Score from content only — claimed source cannot change it
+  const score = scoreFromCvContent(input.text, input.fileName);
   const candidateName =
     input.candidateName?.trim() || nameFromFile(input.fileName);
   const model = scoringModel();
   const excerpt = input.text.slice(0, 12000).trim();
+  const strong = score >= 80;
 
   if (!model || excerpt.length < 40) {
     return fallbackReport(input.source, score, input.fileName, candidateName);
@@ -224,15 +290,21 @@ export async function analyzeCvForAts(input: {
       prompt: [
         "You are an ATS (Applicant Tracking System) CV coach for Creative CV.",
         `Candidate: ${candidateName}.`,
-        `CV source: ${input.source}. Overall ATS score is fixed at ${score}% — do not invent a different overall score.`,
-        input.source === "creative-cv"
-          ? "This CV was made with Creative CV — treat layout as strong; focus on polish for wording and keywords."
-          : "This CV was not made with Creative CV — emphasise formatting/ATS parse risks and keyword gaps.",
+        `Overall ATS score is fixed at ${score}% from content analysis — do not invent a different overall score.`,
+        "Do not change the score based on who the user claims wrote the CV.",
+        strong
+          ? "This CV scores strongly — treat layout as solid; focus on polish for wording and keywords."
+          : "This CV scores weakly — emphasise formatting/ATS parse risks and keyword gaps.",
+        input.source === "creative-cv" && !strong
+          ? "User claimed Creative CV, but content quality does not support a high ATS score — be honest."
+          : "",
         "Write a practical report covering wording, formatting, and keywording. Be specific and actionable.",
         "",
         "CV text excerpt:",
         excerpt || "(Limited text extracted from the file.)",
-      ].join("\n"),
+      ]
+        .filter(Boolean)
+        .join("\n"),
     });
 
     return withMeta(
@@ -242,26 +314,17 @@ export async function analyzeCvForAts(input: {
         summary: object.summary,
         areas: {
           wording: {
-            score: areaScoreFromOverall(
-              score,
-              input.source === "creative-cv" ? 2 : -4,
-            ),
+            score: areaScoreFromOverall(score, strong ? 2 : -4),
             findings: object.wording.findings,
             fixes: object.wording.fixes,
           },
           formatting: {
-            score: areaScoreFromOverall(
-              score,
-              input.source === "creative-cv" ? 4 : -8,
-            ),
+            score: areaScoreFromOverall(score, strong ? 4 : -8),
             findings: object.formatting.findings,
             fixes: object.formatting.fixes,
           },
           keywording: {
-            score: areaScoreFromOverall(
-              score,
-              input.source === "creative-cv" ? 0 : -6,
-            ),
+            score: areaScoreFromOverall(score, strong ? 0 : -6),
             findings: object.keywording.findings,
             fixes: object.keywording.fixes,
           },
@@ -300,5 +363,12 @@ export async function extractTextFromUpload(
     return cleaned.slice(0, 20000);
   }
 
-  return `File: ${fileName}. Limited text could be extracted automatically. Provide feedback based on typical ATS issues for this file type.`;
+  // Include a content fingerprint from the raw bytes so the same file
+  // still gets a stable score even when little text is extractable.
+  const byteFingerprint = fingerprint(
+    Buffer.from(buffer.subarray(0, Math.min(buffer.length, 64000))).toString(
+      "binary",
+    ),
+  );
+  return `File: ${fileName}. Limited text could be extracted automatically. Provide feedback based on typical ATS issues for this file type. Content id: ${byteFingerprint}.`;
 }

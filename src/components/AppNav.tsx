@@ -3,7 +3,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { SignOutButton } from "@/components/SignOutButton";
 
 const LINKS = [
   { href: "/", label: "Home" },
@@ -22,6 +24,23 @@ function linkActive(pathname: string, href: string) {
 export function AppNav({ variant = "app" }: { variant?: "landing" | "app" }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState<string | null>(null);
+  const [authReady, setAuthReady] = useState(false);
+
+  useEffect(() => {
+    const supabase = createClient();
+    supabase.auth.getUser().then(({ data }) => {
+      setEmail(data.user?.email ?? null);
+      setAuthReady(true);
+    });
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setEmail(session?.user?.email ?? null);
+      setAuthReady(true);
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   return (
     <header
@@ -67,12 +86,35 @@ export function AppNav({ variant = "app" }: { variant?: "landing" | "app" }) {
         </nav>
 
         <div className="flex items-center gap-2">
-          <Link
-            href="/interviews"
-            className="rounded-full bg-teal px-4 py-2 text-sm font-semibold text-navy transition hover:bg-foam"
-          >
-            Start interview
-          </Link>
+          {authReady && email ? (
+            <>
+              <span className="hidden max-w-[140px] truncate text-xs text-mist sm:inline">
+                {email}
+              </span>
+              <Link
+                href="/interviews"
+                className="rounded-full bg-teal px-4 py-2 text-sm font-semibold text-navy transition hover:bg-foam"
+              >
+                Start interview
+              </Link>
+              <SignOutButton />
+            </>
+          ) : (
+            <>
+              <Link
+                href="/login"
+                className="hidden rounded-full border border-white/20 px-3 py-2 text-sm font-semibold text-ink transition hover:border-teal/50 hover:text-teal sm:inline-flex"
+              >
+                Sign in
+              </Link>
+              <Link
+                href="/register"
+                className="rounded-full bg-teal px-4 py-2 text-sm font-semibold text-navy transition hover:bg-foam"
+              >
+                Register
+              </Link>
+            </>
+          )}
           <button
             type="button"
             className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-ink lg:hidden"
@@ -107,6 +149,15 @@ export function AppNav({ variant = "app" }: { variant?: "landing" | "app" }) {
               </Link>
             );
           })}
+          {!email && (
+            <Link
+              href="/login"
+              onClick={() => setOpen(false)}
+              className="rounded-lg px-3 py-2.5 text-sm font-medium text-mist hover:text-ink"
+            >
+              Sign in
+            </Link>
+          )}
         </nav>
       )}
     </header>

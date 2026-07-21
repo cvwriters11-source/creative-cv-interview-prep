@@ -1,12 +1,12 @@
 import { gateway } from "ai";
 import { NextResponse } from "next/server";
-import { getGuestUserId } from "@/lib/guest";
+import { requireUserId } from "@/lib/guest";
 import { REALTIME_MODEL_ID } from "@/lib/realtime/gateway-browser-model";
 import { getSession } from "@/lib/sessions/store";
 import { canJoinSession } from "@/lib/types";
 
 export async function POST(req: Request) {
-  const userId = await getGuestUserId();
+  const userId = await requireUserId();
 
   if (!process.env.AI_GATEWAY_API_KEY) {
     return NextResponse.json(

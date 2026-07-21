@@ -1,11 +1,11 @@
 import { NextResponse } from "next/server";
-import { getGuestUserId } from "@/lib/guest";
+import { requireUserId } from "@/lib/guest";
 import { getSession } from "@/lib/sessions/store";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Params) {
-  const userId = await getGuestUserId();
+  const userId = await requireUserId();
   const { id } = await params;
 
   try {

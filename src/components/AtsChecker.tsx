@@ -89,7 +89,8 @@ function AtsResultsView({
   report: AtsReport;
   onBack: () => void;
 }) {
-  const verified = report.source === "creative-cv";
+  // Verified only when claimed Creative CV AND content actually scores high
+  const verified = report.source === "creative-cv" && report.score >= 80;
   const shareText = [
     `Creative CV ATS Analysis`,
     `${report.candidateName}: ${report.score}/100 (${report.ratingLabel})`,
@@ -364,47 +365,79 @@ export function AtsChecker() {
           value={candidateName}
           onChange={(e) => setCandidateName(e.target.value)}
           placeholder="e.g. Samuel Parirenyatwa"
-          className="w-full rounded-xl border border-white/10 bg-navy-mid px-4 py-3 text-sm text-ink outline-none placeholder:text-mist/50 focus:border-teal/60"
+          className="w-full rounded-xl border border-white/10 bg-navy-mid px-4 py-3 text-sm text-ink outline-none transition placeholder:text-mist/50 hover:border-white/25 focus:border-teal focus:ring-2 focus:ring-teal/25"
         />
       </div>
 
       <div>
-        <label className="mb-2 block text-sm font-medium text-mist">
+        <label
+          htmlFor="ats-file"
+          className="mb-2 block text-sm font-medium text-mist"
+        >
           Upload your CV
         </label>
-        <input
-          type="file"
-          accept=".pdf,.doc,.docx,.txt,application/pdf,text/plain"
-          onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-          className="block w-full rounded-xl border border-white/10 bg-navy-mid px-4 py-3 text-sm text-ink file:mr-4 file:rounded-full file:border-0 file:bg-teal file:px-4 file:py-2 file:text-sm file:font-semibold file:text-navy"
-        />
-        {file && (
-          <p className="mt-2 text-xs text-mist">
-            Selected: {file.name} ({Math.round(file.size / 1024)} KB)
-          </p>
-        )}
+        <label
+          htmlFor="ats-file"
+          className={`group flex cursor-pointer items-center gap-4 rounded-xl border border-dashed px-4 py-4 transition duration-200 ${
+            file
+              ? "border-teal/50 bg-teal/10"
+              : "border-white/15 bg-navy-mid hover:border-teal/60 hover:bg-teal/5"
+          }`}
+        >
+          <span className="inline-flex shrink-0 items-center rounded-full bg-teal px-4 py-2 text-sm font-semibold text-navy shadow-sm transition duration-200 group-hover:bg-foam group-hover:shadow-[0_0_20px_rgba(232,93,4,0.35)] group-active:scale-[0.98]">
+            Choose file
+          </span>
+          <span className="min-w-0 truncate text-sm text-mist transition group-hover:text-ink">
+            {file
+              ? `${file.name} · ${Math.round(file.size / 1024)} KB`
+              : "PDF, DOC, DOCX, or TXT"}
+          </span>
+          <input
+            id="ats-file"
+            type="file"
+            accept=".pdf,.doc,.docx,.txt,application/pdf,text/plain"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+            className="sr-only"
+          />
+        </label>
       </div>
 
       <fieldset>
         <legend className="mb-3 text-sm font-medium text-mist">
           How was this CV created?
         </legend>
+        <p className="mb-3 text-xs text-mist/80">
+          Your ATS score is based on the CV file itself — changing this answer
+          will not raise or lower the score.
+        </p>
         <div className="grid gap-3 sm:grid-cols-3">
-          {SOURCES.map((opt) => (
-            <button
-              key={opt.value}
-              type="button"
-              onClick={() => setSource(opt.value)}
-              className={`rounded-xl border px-4 py-4 text-left transition ${
-                source === opt.value
-                  ? "border-teal bg-teal/15 text-ink"
-                  : "border-white/10 bg-navy-mid text-mist hover:border-white/25"
-              }`}
-            >
-              <span className="block font-semibold">{opt.label}</span>
-              <span className="mt-1 block text-xs opacity-70">{opt.hint}</span>
-            </button>
-          ))}
+          {SOURCES.map((opt) => {
+            const selected = source === opt.value;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => setSource(opt.value)}
+                className={`group relative rounded-xl border px-4 py-4 text-left transition duration-200 hover:-translate-y-0.5 hover:shadow-[0_8px_24px_rgba(0,0,0,0.35)] active:translate-y-0 ${
+                  selected
+                    ? "border-teal bg-teal/15 text-ink shadow-[0_0_0_1px_rgba(232,93,4,0.4)]"
+                    : "border-white/10 bg-navy-mid text-mist hover:border-teal/45 hover:bg-white/[0.04] hover:text-ink"
+                }`}
+              >
+                <span
+                  className={`mb-2 block h-1 w-8 rounded-full transition duration-200 ${
+                    selected
+                      ? "bg-teal"
+                      : "bg-white/15 group-hover:bg-teal/70"
+                  }`}
+                />
+                <span className="block font-semibold">{opt.label}</span>
+                <span className="mt-1 block text-xs opacity-70 group-hover:opacity-90">
+                  {opt.hint}
+                </span>
+              </button>
+            );
+          })}
         </div>
       </fieldset>
 
@@ -417,7 +450,7 @@ export function AtsChecker() {
       <button
         type="submit"
         disabled={loading}
-        className="w-full rounded-full bg-teal py-3.5 text-sm font-semibold text-navy transition hover:bg-foam disabled:opacity-60 sm:w-auto sm:px-10"
+        className="w-full rounded-full bg-teal py-3.5 text-sm font-semibold text-navy shadow-[0_4px_16px_rgba(232,93,4,0.25)] transition duration-200 hover:-translate-y-0.5 hover:bg-foam hover:shadow-[0_8px_28px_rgba(232,93,4,0.45)] active:translate-y-0 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-60 sm:w-auto sm:px-10"
       >
         {loading ? "Analysing for ATS…" : "Get ATS report"}
       </button>

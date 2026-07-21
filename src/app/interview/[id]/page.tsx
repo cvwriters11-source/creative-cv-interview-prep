@@ -2,14 +2,16 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AppNav } from "@/components/AppNav";
 import { InterviewRoom } from "@/components/InterviewRoom";
-import { getGuestUserId } from "@/lib/guest";
+import { requireUserId } from "@/lib/guest";
 import { getSession } from "@/lib/sessions/store";
 import { canJoinSession } from "@/lib/types";
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function InterviewPage({ params }: Props) {
-  const userId = await getGuestUserId();
+  const userId = await requireUserId();
   const { id } = await params;
 
   const session = await getSession(userId, id);

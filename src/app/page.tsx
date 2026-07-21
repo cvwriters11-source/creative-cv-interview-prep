@@ -44,50 +44,40 @@ export default function HomePage() {
 
         <main className="mx-auto flex w-full max-w-5xl flex-1 flex-col justify-between px-6 py-4 md:px-10 md:py-6">
           <div className="cw-rise flex flex-1 flex-col justify-center">
-            <div className="inline-flex w-fit items-center rounded-xl bg-white px-3 py-2 shadow-sm sm:px-4 sm:py-2.5">
-              <Image
-                src="/creative-cv-logo.png"
-                alt="Creative CV — Group of Recruiters"
-                width={280}
-                height={72}
-                priority
-                className="h-10 w-auto sm:h-12 md:h-14"
-              />
-            </div>
-            <p className="cw-rise-delay mt-4 text-xs font-semibold uppercase tracking-[0.22em] text-teal sm:text-sm">
+            <p className="cw-rise-delay text-sm font-bold uppercase tracking-[0.18em] text-teal sm:text-base">
               Interview Prep
             </p>
-            <h1 className="cw-rise-delay mt-3 max-w-xl font-[family-name:var(--font-display)] text-xl font-medium leading-snug text-foam sm:text-2xl md:text-3xl">
+            <h1 className="cw-rise-delay mt-3 max-w-xl font-[family-name:var(--font-display)] text-2xl font-semibold leading-snug text-white sm:text-3xl md:text-4xl">
               Practice real interviews out loud — and walk in ready.
             </h1>
-            <p className="cw-rise-delay mt-3 max-w-md text-sm leading-relaxed text-mist sm:text-base">
+            <p className="cw-rise-delay mt-4 max-w-lg text-base font-medium leading-relaxed text-ink/90 sm:text-lg">
               Timed voice interviews with on-screen questions, live transcripts,
               and a clear score under your name.
             </p>
 
             <div className="cw-rise-delay mt-6 flex flex-wrap items-center gap-3">
               <Link
-                href="/interviews"
-                className="rounded-full bg-teal px-7 py-3 text-sm font-semibold text-navy shadow-[0_0_40px_rgba(232,93,4,0.3)] transition hover:bg-foam sm:text-base"
+                href="/register"
+                className="rounded-full bg-teal px-7 py-3.5 text-base font-bold text-navy shadow-[0_0_40px_rgba(232,93,4,0.3)] transition hover:bg-foam"
               >
-                Start interview
+                Register to start
               </Link>
               <Link
-                href="/ats"
-                className="rounded-full border border-white/25 px-5 py-3 text-sm font-medium text-ink transition hover:border-teal/50 hover:text-teal sm:text-base"
+                href="/login"
+                className="rounded-full border border-white/35 px-5 py-3.5 text-base font-semibold text-white transition hover:border-teal/50 hover:text-teal"
               >
-                Test Your CV for ATS
+                Sign in
               </Link>
             </div>
           </div>
 
-          <ol className="cw-rise-delay grid shrink-0 grid-cols-1 gap-4 border-t border-white/10 pb-2 pt-5 sm:grid-cols-3 sm:gap-6">
+          <ol className="cw-rise-delay grid shrink-0 grid-cols-1 gap-4 border-t border-white/15 pb-2 pt-5 sm:grid-cols-3 sm:gap-6">
             {STEPS.map((step, i) => (
               <li key={step.title} className="min-w-0">
-                <p className="font-[family-name:var(--font-display)] text-lg text-teal">
+                <p className="font-[family-name:var(--font-display)] text-xl font-semibold text-teal">
                   {String(i + 1).padStart(2, "0")} · {step.title}
                 </p>
-                <p className="mt-1 text-xs leading-snug text-mist sm:text-sm">
+                <p className="mt-1.5 text-sm font-medium leading-snug text-ink/85 sm:text-base">
                   {step.body}
                 </p>
               </li>

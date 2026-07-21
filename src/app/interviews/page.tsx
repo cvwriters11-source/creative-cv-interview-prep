@@ -2,12 +2,14 @@ import Link from "next/link";
 import { AppNav } from "@/components/AppNav";
 import { SessionsList } from "@/components/SessionsList";
 import { StartInterviewForm } from "@/components/StartInterviewForm";
-import { getGuestUserId } from "@/lib/guest";
+import { requireUserId } from "@/lib/guest";
 import { listSessions } from "@/lib/sessions/store";
 import type { InterviewSession } from "@/lib/types";
 
+export const dynamic = "force-dynamic";
+
 export default async function InterviewsPage() {
-  const userId = await getGuestUserId();
+  const userId = await requireUserId();
 
   let sessions: InterviewSession[] = [];
   let loadError: string | null = null;

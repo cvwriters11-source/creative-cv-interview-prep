@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { isValidPhoneNumber, normalizePhoneNumber } from "@/lib/candidate";
-import { getGuestUserId } from "@/lib/guest";
+import { requireUserId } from "@/lib/guest";
 import { createSession, listSessions } from "@/lib/sessions/store";
 import {
   INTERVIEW_DURATIONS,
@@ -10,7 +10,7 @@ import {
 } from "@/lib/types";
 
 export async function GET() {
-  const userId = await getGuestUserId();
+  const userId = await requireUserId();
 
   try {
     const sessions = await listSessions(userId);
@@ -24,7 +24,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const userId = await getGuestUserId();
+  const userId = await requireUserId();
 
   let body: {
     scheduledAt?: string;

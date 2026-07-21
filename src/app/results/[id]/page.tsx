@@ -1,13 +1,15 @@
 import { notFound, redirect } from "next/navigation";
 import { AppNav } from "@/components/AppNav";
 import { ResultsView } from "@/components/ResultsView";
-import { getGuestUserId } from "@/lib/guest";
+import { requireUserId } from "@/lib/guest";
 import { getSession } from "@/lib/sessions/store";
+
+export const dynamic = "force-dynamic";
 
 type Props = { params: Promise<{ id: string }> };
 
 export default async function ResultsPage({ params }: Props) {
-  const userId = await getGuestUserId();
+  const userId = await requireUserId();
   const { id } = await params;
 
   const session = await getSession(userId, id);

@@ -1,12 +1,12 @@
 import { NextResponse } from "next/server";
-import { getGuestUserId } from "@/lib/guest";
+import { requireUserId } from "@/lib/guest";
 import { getSession, updateSessionStatus } from "@/lib/sessions/store";
 import { canJoinSession } from "@/lib/types";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function POST(_req: Request, { params }: Params) {
-  const userId = await getGuestUserId();
+  const userId = await requireUserId();
   const { id } = await params;
 
   try {
